@@ -17,7 +17,7 @@ from galicaster.core import context
 from galicaster.core.core import PAGES
 from galicaster.classui import get_ui_path, get_image_path
 
-import pysca
+import virtualptz
 
 from gi.repository import Gtk, Gdk, GObject, Pango, GdkPixbuf
 
@@ -29,21 +29,19 @@ conf = None
 logger = None
 jobs = None
 event_handler = None
+cam_ctrl = None
 
 def init():
+    global cam_ctrl
+    cam_ctrl = virtualptz.VPTZ()
     global conf, logger, event_handler, jobs
     dispatcher = context.get_dispatcher()
     conf = context.get_conf()
+
     logger = context.get_logger()
 
     path = conf.get('cameracontrol','path')
-    pysca.connect(path)
-    pysca.set_zoom(1,0)
-    pysca.pan_tilt_home(1)
-    dispatcher.connect('init',load_ui)
-    pysca.osd_off(1)
     logger.info("Cam connected")
-
 
     icons = ["left","right","up1","down1","up_right","up_left","down_left","down_right","plus","minus"]
     icontheme = Gtk.IconTheme()
@@ -51,6 +49,7 @@ def init():
         pixbuf = GdkPixbuf.Pixbuf.new_from_file(get_image_path(name+".svg"))
         icontheme.add_builtin_icon(name,20,pixbuf)
 
+    dispatcher.connect('init',load_ui)
     dispatcher.connect("action-key-press", on_key_press)
     dispatcher.connect("action-key-release", on_key_release)
 
@@ -179,56 +178,73 @@ class Handler:
         GObject.timeout_add(timeout, movements[movement])
 
     def on_release(self, *args):
-        jobs.put((pysca.clear_commands, (1,)))
-        jobs.put((pysca.zoom, (1, "stop")))
-        self._repeat = False
+        pass
+        # jobs.put((virtualptz.clear_commands, (1,)))
+        # jobs.put((virtualptz.zoom, (1, "stop")))
+        # self._repeat = False
 
     def on_up(self, *args):
-        jobs.put((pysca.pan_tilt, (1,0,move_speed)))
+        cam_ctrl.move_up()
+        logger.debug("Pan/Tilt value:"+str(cam_ctrl.pan)+"/"+str(cam_ctrl.tilt))
 
     def on_right(self, *args):
-        jobs.put((pysca.pan_tilt, (1,move_speed,0)))
+        cam_ctrl.move_right()
+        logger.debug("Pan/Tilt value:"+str(cam_ctrl.pan)+"/"+str(cam_ctrl.tilt))
 
     def on_down(self, *args):
-        jobs.put((pysca.pan_tilt, (1,0,-move_speed)))
+        cam_ctrl.move_down()
+        logger.debug("Pan/Tilt value:"+str(cam_ctrl.pan)+"/"+str(cam_ctrl.tilt))
 
     def on_left(self, *args):
-        jobs.put((pysca.pan_tilt, (1,-move_speed,0)))
+        cam_ctrl.move_left()
+        logger.debug("Pan/Tilt value:"+str(cam_ctrl.pan)+"/"+str(cam_ctrl.tilt))
 
     def on_up_left(self):
-        jobs.put((pysca.pan_tilt, (1,-move_speed,move_speed-2)))
-
+        cam_ctrl.move_up()
+        cam_ctrl.move_left()
+        logger.debug("Pan/Tilt value:"+str(cam_ctrl.pan)+"/"+str(cam_ctrl.tilt))
+        
     def on_up_right(self):
-        jobs.put((pysca.pan_tilt, (1,move_speed,move_speed-2)))
+        cam_ctrl.move_up()
+        cam_ctrl.move_right()
+        logger.debug("Pan/Tilt value:"+str(cam_ctrl.pan)+"/"+str(cam_ctrl.tilt))
 
     def on_down_left(self):
-        jobs.put((pysca.pan_tilt, (1,-move_speed,-move_speed+2)))
+        cam_ctrl.move_down()
+        cam_ctrl.move_left()
+        logger.debug("Pan/Tilt value:"+str(cam_ctrl.pan)+"/"+str(cam_ctrl.tilt))
 
     def on_down_right(self):
-        jobs.put((pysca.pan_tilt, (1,move_speed,-move_speed+2)))
+        cam_ctrl.move_down()
+        cam_ctrl.move_right()
+        logger.debug("Pan/Tilt value:"+str(cam_ctrl.pan)+"/"+str(cam_ctrl.tilt))
 
     def on_load_presets(self, *args):
-        preset = args[0].get_name().split(" ")[1]
-        jobs.put((pysca.recall_memory, (1,preset)))
-        logger.debug("Load camera preset: "+preset)
+        pass
+        # preset = args[0].get_name().split(" ")[1]
+        # jobs.put((cam_ctrl.recall_memory, (1,preset)))
+        # logger.debug("Load camera preset: "+preset)
 
     def on_save_presets(self, *args):
-        preset = args[0].get_name().split(" ")[1]
-        jobs.put((pysca.set_memory, (1,preset)))
-        logger.debug("Save camera preset: "+preset)
+        pass
+        # preset = args[0].get_name().split(" ")[1]
+        # jobs.put((cam_ctrl.set_memory, (1,preset)))
+        # logger.debug("Save camera preset: "+preset)
 
     def zoom_in(self, *args):
-        jobs.put((pysca.zoom, (1,"tele",zoom_speed)))
-
+        cam_ctrl.zoom_in()
+        logger.debug("Zoom value:"+str(cam_ctrl.zoom))
+        
     def zoom_out(self, *args):
-        jobs.put((pysca.zoom, (1,"wide",zoom_speed)))
+        cam_ctrl.zoom_out()
+        logger.debug("Zoom value:"+str(cam_ctrl.zoom))
 
     def on_zoom_speed(self, *args):
-        global zoom_speed
         zoom_speed = args[0].get_value()
+        cam_ctrl.set_zoom_speed(zoom_speed)
         logger.debug("Zoom speed set to: "+str(zoom_speed))
 
     def on_move_speed(self, *args):
-        global move_speed
         move_speed = args[0].get_value()
+        cam_ctrl.set_move_speed(move_speed)
         logger.debug("Pan/Tilt speed set to: "+str(move_speed))
